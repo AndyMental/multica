@@ -2476,6 +2476,16 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 		defer d.unmarkActiveEnvRoot(env.RootDir)
 	}
 
+	// Surface the effective working directory as soon as it is known. This is
+	// especially important for local_directory tasks, where the user expects
+	// the issue/run UI to show the existing checkout before the backend emits
+	// a session_id.
+	pinCtx, pinCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := d.client.PinTaskSession(pinCtx, task.ID, "", env.WorkDir); err != nil {
+		taskLog.Debug("pin workdir failed", "error", err)
+	}
+	pinCancel()
+
 	// Inject runtime-specific config (meta skill) so the agent discovers .agent_context/.
 	runtimeBrief, err := execenv.InjectRuntimeConfig(env.WorkDir, provider, taskCtx)
 	if err != nil {

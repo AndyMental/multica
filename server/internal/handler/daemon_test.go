@@ -222,6 +222,44 @@ func TestClaimTaskByRuntime_ReclaimsStaleDispatchedTask(t *testing.T) {
 	}
 }
 
+func TestPinTaskSessionAcceptsWorkDirOnly(t *testing.T) {
+	if testHandler == nil || testPool == nil {
+		t.Skip("database not available")
+	}
+
+	ctx := context.Background()
+	runtimeID := createClaimReclaimRuntime(t, ctx, "Workdir pin runtime")
+	agentID, issueID := createClaimReclaimAgentAndIssue(t, ctx, runtimeID, "Workdir pin agent")
+	taskID := createDispatchedClaimFixtureTask(t, ctx, agentID, runtimeID, issueID, "0 seconds", true)
+
+	const workDir = "/tmp/multica-workdir-only"
+	w := httptest.NewRecorder()
+	req := newDaemonTokenRequest("POST", "/api/daemon/tasks/"+taskID+"/session", map[string]any{
+		"work_dir": workDir,
+	}, testWorkspaceID, "workdir-pin-daemon")
+	req = withURLParam(req, "taskId", taskID)
+
+	testHandler.PinTaskSession(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("PinTaskSession: expected 204, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var gotWorkDir, gotSession string
+	if err := testPool.QueryRow(ctx, `
+		SELECT COALESCE(work_dir, ''), COALESCE(session_id, '')
+		FROM agent_task_queue
+		WHERE id = $1
+	`, taskID).Scan(&gotWorkDir, &gotSession); err != nil {
+		t.Fatalf("load pinned task session: %v", err)
+	}
+	if gotWorkDir != workDir {
+		t.Fatalf("work_dir = %q, want %q", gotWorkDir, workDir)
+	}
+	if gotSession != "" {
+		t.Fatalf("session_id = %q, want empty", gotSession)
+	}
+}
+
 func TestClaimTaskByRuntime_DoesNotReclaimFreshDispatchedTask(t *testing.T) {
 	if testHandler == nil || testPool == nil {
 		t.Skip("database not available")
