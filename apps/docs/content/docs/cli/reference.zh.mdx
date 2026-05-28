@@ -296,17 +296,21 @@ Valid statuses: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`
 ### Comments
 
 ```bash
-# List comments
+# 列出评论
 multica issue comment list <issue-id>
 
-# Add a comment
+# 添加评论
 multica issue comment add <issue-id> --content "Looks good, merging now"
 
-# Reply to a specific comment
+# 回复指定评论
 multica issue comment add <issue-id> --parent <comment-id> --content "Thanks!"
 
-# Delete a comment
+# 删除评论
 multica issue comment delete <comment-id>
+
+# 解决或重新打开评论线程
+multica issue comment resolve <comment-id>
+multica issue comment unresolve <comment-id>
 ```
 
 ### Execution History

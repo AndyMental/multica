@@ -1560,6 +1560,12 @@ func newIssueCommentListTestCmd() *cobra.Command {
 	return cmd
 }
 
+func newIssueCommentResolutionTestCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "resolve"}
+	cmd.Flags().String("output", "table", "")
+	return cmd
+}
+
 // TestRunIssueCommentListFlagGuards locks the CLI-side flag combination
 // matrix. Two behaviours matter here:
 //
@@ -1815,6 +1821,65 @@ func TestRunIssueCommentList_DoesNotPrintShowingPreamble(t *testing.T) {
 
 	if got := stderr.read(); strings.Contains(got, "Showing") {
 		t.Errorf("stderr must not contain a 'Showing ...' preamble, got: %q", got)
+	}
+}
+
+func TestRunIssueCommentResolveAndUnresolve(t *testing.T) {
+	cases := []struct {
+		name       string
+		run        func(*cobra.Command, []string) error
+		wantMethod string
+		wantPath   string
+	}{
+		{
+			name:       "resolve",
+			run:        runIssueCommentResolve,
+			wantMethod: http.MethodPost,
+			wantPath:   "/api/comments/comment-1/resolve",
+		},
+		{
+			name:       "unresolve",
+			run:        runIssueCommentUnresolve,
+			wantMethod: http.MethodDelete,
+			wantPath:   "/api/comments/comment-1/resolve",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var gotMethod, gotPath string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotMethod = r.Method
+				gotPath = r.URL.Path
+				json.NewEncoder(w).Encode(map[string]any{
+					"id":          "comment-1",
+					"resolved_at": "2026-01-01T00:00:00Z",
+				})
+			}))
+			defer srv.Close()
+
+			t.Setenv("MULTICA_SERVER_URL", srv.URL)
+			t.Setenv("MULTICA_WORKSPACE_ID", "ws-1")
+			t.Setenv("MULTICA_TOKEN", "test-token")
+
+			stderr := captureStderr(t)
+			defer stderr.restore()
+
+			cmd := newIssueCommentResolutionTestCmd()
+			if err := tc.run(cmd, []string{"comment-1"}); err != nil {
+				t.Fatalf("%s comment: %v", tc.name, err)
+			}
+
+			if gotMethod != tc.wantMethod {
+				t.Errorf("method = %q, want %q", gotMethod, tc.wantMethod)
+			}
+			if gotPath != tc.wantPath {
+				t.Errorf("path = %q, want %q", gotPath, tc.wantPath)
+			}
+			if !strings.Contains(stderr.read(), "Comment comment-1 "+tc.name+"d.") {
+				t.Errorf("stderr should report %s success", tc.name)
+			}
+		})
 	}
 }
 

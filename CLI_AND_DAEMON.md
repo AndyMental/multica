@@ -426,6 +426,10 @@ multica issue comment add <issue-id> --parent <comment-id> --content "Thanks!"
 
 # Delete a comment
 multica issue comment delete <comment-id>
+
+# Resolve or reopen a comment thread
+multica issue comment resolve <comment-id>
+multica issue comment unresolve <comment-id>
 ```
 
 **`--before` / `--before-id` semantics depend on the paging mode**, by
