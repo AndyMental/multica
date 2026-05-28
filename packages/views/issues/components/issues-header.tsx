@@ -73,7 +73,6 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@multica/ui/components/
 import type { Issue } from "@multica/core/types";
 import { useT } from "../../i18n";
 import { matchesPinyin } from "../../editor/extensions/pinyin-match";
-import { useIssueViewStore } from "@multica/core/issues/stores/view-store";
 import { WorkspaceAgentWorkingChip } from "./workspace-agent-working-chip";
 
 // ---------------------------------------------------------------------------
@@ -508,11 +507,13 @@ export function IssuesHeader({
   const { t } = useT("issues");
   const scope = useIssuesScopeStore((s) => s.scope);
   const setScope = useIssuesScopeStore((s) => s.setScope);
-  // Bind the workspace agents-working chip to the global /issues view
-  // store. Subscribing here keeps the chip presentational and lets
-  // /my-issues bind its own store via a sibling header.
-  const agentRunningFilter = useIssueViewStore((s) => s.agentRunningFilter);
-  const toggleAgentRunningFilter = useIssueViewStore(
+  // Bind the agents-working chip to whichever view store the surrounding
+  // ViewStoreProvider supplies. /issues injects the global singleton;
+  // project detail injects its own per-project store so toggling the chip
+  // there doesn't leak into /issues (and vice versa). /my-issues renders
+  // its own header instead of this one.
+  const agentRunningFilter = useViewStore((s) => s.agentRunningFilter);
+  const toggleAgentRunningFilter = useViewStore(
     (s) => s.toggleAgentRunningFilter,
   );
   // Scope the chip to whatever issues this page is currently showing.
